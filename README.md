@@ -16,8 +16,10 @@
   Based on the AdS/CFT holographic duality, this model reveals deep structural resonance between prime distributions and zeta zero frequencies, offering insight aligned with both number theory and mathematical physics.
 
 
+
 Holographic Duality of Prime Numbers and Riemann Zeros in AdS/CFT
-https://zenodo.org/records/15232851
+
+ https://zenodo.org/records/15232851
 
 
 
