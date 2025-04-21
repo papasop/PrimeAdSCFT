@@ -2,7 +2,7 @@ import numpy as np
 import math
 from scipy.optimize import minimize
 
-# ζ 函数前 100 个非平凡零点
+# 预定义前 100 个 ζ 零点（频率）
 zeta_zeros = [
     14.134725, 21.022040, 25.010858, 30.424876, 32.935062, 37.586178, 40.918719,
     43.327073, 48.005151, 49.773832, 52.970321, 56.446247, 59.347044, 60.831779,
@@ -22,67 +22,78 @@ zeta_zeros = [
     229.337413, 231.250188, 231.987235, 233.693404
 ]
 
-def structured_ads_fit_for_x(x_input, lambda_fixed=0.0001, top_k_freqs=5):
-    # 检查输入是否是2的幂次方（即 x = 2^N）
-    if "2^" in x_input:
-        n = int(x_input.split('^')[1])
-        x = 2**n
-        print(f"\n检测到输入是 2 的幂次方：x = 2^{n} = {x}")
-    else:
-        x = int(x_input)  # 输入的直接值作为 x
+# 实际 π(x) 查表（部分常见值）
+pi_lookup = {
+    16: 6, 100: 25, 256: 54, 1000: 168, 10000: 1229, 100000: 9592,
+    1000000: 78498, 10000000: 664579, 100000000: 5761455,
+    1000000000: 50847534, 10000000000: 455052511
+}
 
-    x_max = 2**512  # 扩展最大支持到 2^512
-    if x > x_max:
-        raise ValueError(f"x 超过上限：2^512 ≈ {x_max}")
-    
-    logx = math.log(x)  # 计算 log(x)
+def fit_until_error(x, target_error=1e-6, lambda_reg=0.0001, max_freqs=30):
+    logx = math.log(x)
+    true_val = pi_lookup[x] / x if x in pi_lookup else 1 / logx
+    used_freqs = []
+    errors = []
 
-    def resonance_score(t):
-        return abs((t * logx) % (2 * np.pi) - np.pi)
+    for n in range(1, max_freqs + 1):
+        def score(t): return abs((t * logx) % (2 * np.pi) - np.pi)
+        best_new = sorted([z for z in zeta_zeros if z not in used_freqs], key=score)[0]
+        used_freqs.append(best_new)
 
-    t_selected = sorted(zeta_zeros, key=resonance_score)[:top_k_freqs]
-    N = len(t_selected)
-    true_val = 1 / logx
+        N = len(used_freqs)
+        init_A = np.ones(N)
+        init_theta = np.zeros(N)
+        init_params = np.concatenate([init_A, init_theta])
+        bounds = [(0.01, 2)] * N + [(-np.pi, np.pi)] * N
 
-    init_A = np.ones(N)
-    init_theta = np.zeros(N)
-    init_params = np.concatenate([init_A, init_theta])
-    bounds = [(0.01, 2)] * N + [(-np.pi, np.pi)] * N
+        def rho_ads(params):
+            s = 1 / logx
+            for i in range(N):
+                A = params[i]
+                theta = params[N + i]
+                s += A * math.cos(used_freqs[i] * logx + theta)
+            return s
 
-    def rho_ads_logx(params):
-        s = 1 / logx
-        for i in range(N):
-            A = params[i]
-            theta = params[N + i]
-            s += A * math.cos(t_selected[i] * logx + theta)
-        return s
+        def loss(params):
+            return (rho_ads(params) - true_val)**2 + lambda_reg * np.sum(np.exp(-params[:N]))
 
-    def objective(params):
-        fit_loss = (rho_ads_logx(params) - true_val) ** 2
-        structure_loss = lambda_fixed * np.sum(np.exp(-params[:N]))  # 激活控制
-        return fit_loss + structure_loss
+        result = minimize(loss, init_params, bounds=bounds, method='L-BFGS-B')
+        error = abs(rho_ads(result.x) - true_val)
+        errors.append(error)
 
-    result = minimize(objective, init_params, bounds=bounds, method='L-BFGS-B')
-    fitted_val = rho_ads_logx(result.x)
-    abs_error = abs(fitted_val - true_val)
-    structure_energy = np.sum(result.x[:N])
+        if error <= target_error:
+            return {
+                "x": x,
+                "logx": logx,
+                "frequencies_used": used_freqs,
+                "optimized_A": result.x[:N],
+                "optimized_theta": result.x[N:],
+                "ads_density": rho_ads(result.x),
+                "true_density": true_val,
+                "absolute_error": error,
+                "structure_energy": np.sum(result.x[:N]),
+                "frequencies_count": N
+            }
 
-    # 打印结果
-    print(f"\n📌 AdS 密度拟合 @ x = {x}")
-    print(f"✅ log(x) = {logx:.4f}")
-    print(f"🎯 模拟真实密度 (1/log x) = {true_val:.10f}")
-    print(f"📈 拟合密度 (AdS)         = {fitted_val:.10f}")
-    print(f"📉 绝对误差               = {abs_error:.2e}")
-    print(f"⚡ 结构激活能量 (∑A_i)    = {structure_energy:.4f}")
-    print(f"\n🔢 使用频率组合（ζ 零点）:")
-    for i, t in enumerate(t_selected):
-        print(f"  t_{i+1} = {t:.6f}")
-    print(f"\n🔧 最优幅度 A:")
-    print(np.round(result.x[:N], 6))
-    print(f"\n🔧 最优相位 θ:")
-    print(np.round(result.x[N:], 6))
+    return {"error": "Target not reached", "min_error": min(errors)}
 
-# 用户输入部分
+# 示例运行
 if __name__ == "__main__":
-    x_str = input("请输入 x（可以是 2 的幂次方形式，如 2^256 或直接输入数值）：")
-    structured_ads_fit_for_x(x_str)
+    x_input = input("请输入自然数 x：")
+    x = int(x_input)
+    result = fit_until_error(x)
+    if "error" in result:
+        print("❌ 未达到目标精度。")
+    else:
+        print(f"\n📌 AdS拟合 @ x = {result['x']} (log x ≈ {result['logx']:.4f})")
+        print(f"✅ True density  = {result['true_density']:.10f}")
+        print(f"📈 AdS density   = {result['ads_density']:.10f}")
+        print(f"📉 Absolute error= {result['absolute_error']:.2e}")
+        print(f"⚡ Structure energy = {result['structure_energy']:.4f}")
+        print(f"🎯 Frequencies used ({result['frequencies_count']}):")
+        for i, t in enumerate(result["frequencies_used"]):
+            print(f"  t_{i+1} = {t:.6f}")
+        print(f"\n🔧 Amplitudes A:")
+        print(np.round(result['optimized_A'], 6))
+        print(f"\n🔧 Phases θ:")
+        print(np.round(result['optimized_theta'], 6))
