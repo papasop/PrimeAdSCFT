@@ -1,21 +1,20 @@
-# **PrimeAdSCFT**
+## Features in Detail
 
-**PrimeAdSCFT** is a tool based on the **AdS/CFT (Anti-de Sitter / Conformal Field Theory)** model for **prime density calculation**. It utilizes spectral resonance methods and the **non-trivial zeros of the Riemann zeta function** to optimize the frequencies, amplitudes, and phases, thereby accurately calculating the prime density and predicting prime distributions.
+- **Adaptive Precision:**  
+  The tool supports precision up to arbitrary accuracy. By dynamically increasing the number of ζ zeros and optimizing the amplitudes and phases, the model can reach extremely small fitting errors (e.g. \( 10^{-8} \), \( 10^{-12} \), or lower), depending on the target.
 
-## **Features**
+- **Automatic Frequency Matching:**  
+  Automatically selects the best matching frequencies based on resonance alignment with \( \log(x) \), using a score-based selection strategy.
 
-- **Based on AdS/CFT Theory**: Leverages the duality between **AdS space** and **Conformal Field Theory** to provide theoretical support.
-- **Frequency Resonance**: Utilizes the **non-trivial zeros of the Riemann zeta function** to calculate prime density based on their resonance properties.
-- **Automatic Optimization**: Automatically selects the optimal frequency combinations and fine-tunes amplitudes and phases to ensure high-precision fitting.
-- **Wide Applicability**: Supports **maximum \( x = 2^{512} \)**, making it suitable for large-scale number theory research and cryptographic applications.
+- **Spectral Kernel Compression:**  
+  Stores optimized frequency–amplitude–phase structures as reusable kernels, supporting rapid recalculation, transfer learning, and structural explanation.
 
-## **Features in Detail**
+- **Scalability to Large Numbers:**  
+  Capable of estimating prime density for \( x \) values up to \( 2^{512} \) and beyond. Since the model operates in \( \log x \)-space, it remains efficient at very large scales.
 
-- **High Precision**: The tool can calculate prime densities with an error typically below \( 10^{-6} \).
-- **Automatic Frequency Matching**: Automatically selects the best matching frequencies based on the **ζ zeros** for prime density fitting.
-- **Spectral Kernel**: Stores the optimized frequency and parameter combinations, enabling reuse for further prime density calculations and predictions.
-- **Scalability**: Supports extremely large values of \( x \), up to \( 2^{512} \), making it ideal for large number theory problems.
-- **Physical Interpretability**: Based on the physical duality and geometric properties of AdS space, providing deep insights into prime number distributions.
+- **Physical Interpretability:**  
+  Based on the AdS/CFT holographic duality, this model reveals deep structural resonance between prime distributions and zeta zero frequencies, offering insight aligned with both number theory and mathematical physics.
+
 
 Holographic Duality of Prime Numbers and Riemann Zeros in AdS/CFT
 https://zenodo.org/records/15232851
