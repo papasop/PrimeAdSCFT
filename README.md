@@ -17,6 +17,11 @@
 - **Scalability**: Supports extremely large values of \( x \), up to \( 2^{512} \), making it ideal for large number theory problems.
 - **Physical Interpretability**: Based on the physical duality and geometric properties of AdS space, providing deep insights into prime number distributions.
 
+Holographic Duality of Prime Numbers and Riemann Zeros in AdS/CFT
+https://zenodo.org/records/15232851
+
+
+
 ## **Installation**
 
 To use the **PrimeAdSCFT** tool, install the necessary dependencies with the following command:
@@ -25,7 +30,6 @@ To use the **PrimeAdSCFT** tool, install the necessary dependencies with the fol
 pip install numpy scipy
 
 
-Holographic Duality of Prime Numbers and Riemann Zeros in AdS/CFT
-https://zenodo.org/records/15232851
+ 
 
 
