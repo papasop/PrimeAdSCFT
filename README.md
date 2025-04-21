@@ -1,7 +1,7 @@
 ## Features in Detail
 
 - **Adaptive Precision:**  
-  The tool supports precision up to arbitrary accuracy. By dynamically increasing the number of ζ zeros and optimizing the amplitudes and phases, the model can reach extremely small fitting errors (e.g. \( 10^{-8} \), \( 10^{-12} \), or lower), depending on the target.
+  The tool supports precision up to arbitrary accuracy. By dynamically increasing the number of ζ zeros and optimizing the amplitudes and phases, the model can reach extremely small fitting errors.
 
 - **Automatic Frequency Matching:**  
   Automatically selects the best matching frequencies based on resonance alignment with \( \log(x) \), using a score-based selection strategy.
