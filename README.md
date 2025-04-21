@@ -23,3 +23,9 @@ To use the **PrimeAdSCFT** tool, install the necessary dependencies with the fol
 
 ```bash
 pip install numpy scipy
+
+
+Holographic Duality of Prime Numbers and Riemann Zeros in AdS/CFT
+https://zenodo.org/records/15232851
+
+
