@@ -1,64 +1,51 @@
-# === 安装依赖（仅第一次运行时需要） ===
-!pip install mpmath
+# Collapse Riemann Approximation - High Precision φ(x) Fitting
+# Supports expansion via Riemann zeros and nonlinear optimization
 
-# === 引入必要库 ===
 import numpy as np
-import matplotlib.pyplot as plt
-from mpmath import zetazero, mp, cos, log, pi
 from scipy.optimize import minimize
 
-# === 设置高精度（50 位小数）===
-mp.dps = 50  # decimal places
+# === 1. 目标参数设置 ===
+x_target = 100           # 你可以替换为任意 x > 0
+phi_target = 1 / np.sqrt(x_target)
+N_zeros = 50             # 使用前 N 个非平凡零点，可尝试 10 ~ 100+
 
-# === 生成前 N 个 Riemann 零点（虚部）===
-def get_riemann_zeros(n):
-    return np.array([float(zetazero(i).imag) for i in range(1, n + 1)])
+# === 2. 加载前 N 个 Riemann ζ(s) 零点（虚部） ===
+gamma_list = np.array([
+    14.134725, 21.022040, 25.010858, 30.424876, 32.935061,
+    37.586178, 40.918719, 43.327073, 48.005150, 49.773832,
+    52.970321, 56.446248, 59.347044, 60.831780, 65.112544,
+    67.079811, 69.546402, 72.067158, 75.704690, 77.144840,
+    79.337376, 82.910380, 84.735493, 87.425274, 88.809111,
+    92.491899, 94.651345, 95.870634, 98.831194, 101.317851,
+    103.725538, 105.446623, 107.168611, 111.029535, 111.874659,
+    114.320221, 116.226680, 118.790783, 121.370125, 122.946829,
+    124.256818, 127.516084, 129.578704, 131.087688, 133.497737,
+    134.756510, 138.116042, 139.736208, 141.123707, 143.111845
+])[:N_zeros]
 
-# === φ(x) 目标函数 ===
-def phi(x, A, theta, gamma):
-    return sum(A[i] * float(cos(gamma[i] * log(x) + theta[i])) for i in range(len(A)))
+# === 3. φ(x) 展开函数 ===
+def phi_approx(params):
+    A = params[:N_zeros]
+    theta = params[N_zeros:]
+    cos_terms = A * np.cos(gamma_list * np.log(x_target) + theta)
+    return np.sum(cos_terms)
 
-# === 损失函数（最小化 φ(x) 与目标值之间的误差）===
-def loss(params, x_target, y_target, gamma, lambda_reg):
-    n = len(gamma)
-    A = params[:n]
-    theta = params[n:]
-    y_pred = phi(x_target, A, theta, gamma)
-    error = (y_pred - y_target) ** 2
-    reg = lambda_reg * np.sum(A**2)
-    return float(error + reg)
+# === 4. 损失函数（最小化 φ(x) - 目标值）² ===
+def loss(params):
+    return (phi_approx(params) - phi_target)**2
 
-# === 参数设置 ===
-x_target = 100              # 拟合目标点 φ(x_target)
-y_target = 0.0              # 假设目标值为 0（可改为其他）
-lambda_reg = 1e-6           # 正则化参数
-errors = []
-N_values = list(range(1, 21))  # 零点数量 1 ~ 20
+# === 5. 初始化参数 ===
+np.random.seed(42)
+A0 = np.ones(N_zeros) * 0.1
+theta0 = np.random.uniform(-np.pi, np.pi, N_zeros)
+params0 = np.concatenate([A0, theta0])
 
-# === 主循环：不断增加零点数量进行测试 ===
-for N in N_values:
-    gamma = get_riemann_zeros(N)
-    A0 = np.full(N, 0.1)
-    theta0 = np.random.uniform(-np.pi, np.pi, N)
-    init_params = np.concatenate([A0, theta0])
+# === 6. 执行优化 ===
+result = minimize(loss, params0, method='L-BFGS-B', options={'maxiter': 1000, 'ftol': 1e-20})
+A_opt = result.x[:N_zeros]
+theta_opt = result.x[N_zeros:]
 
-    res = minimize(
-        loss,
-        init_params,
-        args=(x_target, y_target, gamma, lambda_reg),
-        method='L-BFGS-B'
-    )
-
-    final_error = loss(res.x, x_target, y_target, gamma, lambda_reg)
-    errors.append(final_error)
-    print(f"Iteration {N}: Error = {final_error:.50f}")
-
-# === 绘图展示误差曲线 ===
-plt.figure(figsize=(10, 6))
-plt.plot(N_values, errors, marker='o')
-plt.yscale('log')
-plt.xlabel('Number of Zeros (N)')
-plt.ylabel('Final Error (log scale)')
-plt.title(f'Error vs. Number of Riemann Zeros for φ(x={x_target})')
-plt.grid(True)
-plt.show()
+# === 7. 输出结果 ===
+print(f"\n✅ 最终误差: {loss(result.x):.30f}")
+print("\nA_n = [", ", ".join(f"{a:.8f}" for a in A_opt), "]")
+print("\nθ_n = [", ", ".join(f"{t:.8f}" for t in theta_opt), "]")
