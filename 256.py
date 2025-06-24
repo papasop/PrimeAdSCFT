@@ -1,51 +1,53 @@
-# Collapse Riemann Approximation - High Precision φ(x) Fitting
-# Supports expansion via Riemann zeros and nonlinear optimization
+# ⬛️ 高精度 SEA-G 零点干涉拟合框架 (Colab 版)
+
+## ✅ 功能：拟合 φ(x) ≈ ∑ Aₙ cos(γₙ log x + θₙ) 并最小化误差
+
+!pip install mpmath numpy scipy
 
 import numpy as np
+from mpmath import zetazero, mp
 from scipy.optimize import minimize
 
-# === 1. 目标参数设置 ===
-x_target = 100           # 你可以替换为任意 x > 0
-phi_target = 1 / np.sqrt(x_target)
-N_zeros = 50             # 使用前 N 个非平凡零点，可尝试 10 ~ 100+
+# 设置精度
+mp.dps = 50
 
-# === 2. 加载前 N 个 Riemann ζ(s) 零点（虚部） ===
-gamma_list = np.array([
-    14.134725, 21.022040, 25.010858, 30.424876, 32.935061,
-    37.586178, 40.918719, 43.327073, 48.005150, 49.773832,
-    52.970321, 56.446248, 59.347044, 60.831780, 65.112544,
-    67.079811, 69.546402, 72.067158, 75.704690, 77.144840,
-    79.337376, 82.910380, 84.735493, 87.425274, 88.809111,
-    92.491899, 94.651345, 95.870634, 98.831194, 101.317851,
-    103.725538, 105.446623, 107.168611, 111.029535, 111.874659,
-    114.320221, 116.226680, 118.790783, 121.370125, 122.946829,
-    124.256818, 127.516084, 129.578704, 131.087688, 133.497737,
-    134.756510, 138.116042, 139.736208, 141.123707, 143.111845
-])[:N_zeros]
+# 获取前 N 个黎曼非平凡零点 γₙ
+def get_riemann_zeros(N):
+    return np.array([float(zetazero(n).imag) for n in range(1, N+1)])
 
-# === 3. φ(x) 展开函数 ===
-def phi_approx(params):
-    A = params[:N_zeros]
-    theta = params[N_zeros:]
-    cos_terms = A * np.cos(gamma_list * np.log(x_target) + theta)
-    return np.sum(cos_terms)
+# 定义 φ(x) = 1 / sqrt(x)
+def phi_target(x):
+    return 1 / np.sqrt(x)
 
-# === 4. 损失函数（最小化 φ(x) - 目标值）² ===
-def loss(params):
-    return (phi_approx(params) - phi_target)**2
+# 构造结构 φ̂(x) = ∑ Aₙ cos(γₙ log x + θₙ)
+def phi_reconstruct(x, A, theta, gamma):
+    return np.sum(A * np.cos(gamma * np.log(x) + theta))
 
-# === 5. 初始化参数 ===
-np.random.seed(42)
-A0 = np.ones(N_zeros) * 0.1
-theta0 = np.random.uniform(-np.pi, np.pi, N_zeros)
-params0 = np.concatenate([A0, theta0])
+# 构造优化目标函数：误差平方
+def loss(params, x, gamma):
+    N = len(gamma)
+    A = params[:N]
+    theta = params[N:]
+    y_pred = phi_reconstruct(x, A, theta, gamma)
+    y_true = phi_target(x)
+    return (y_pred - y_true) ** 2
 
-# === 6. 执行优化 ===
-result = minimize(loss, params0, method='L-BFGS-B', options={'maxiter': 1000, 'ftol': 1e-20})
-A_opt = result.x[:N_zeros]
-theta_opt = result.x[N_zeros:]
+# 主执行函数
+def run_fit(x_val=100, N_zeros=50):
+    gamma = get_riemann_zeros(N_zeros)
+    A0 = np.ones(N_zeros) * 0.1
+    theta0 = np.random.uniform(-np.pi, np.pi, N_zeros)
+    init_params = np.concatenate([A0, theta0])
 
-# === 7. 输出结果 ===
-print(f"\n✅ 最终误差: {loss(result.x):.30f}")
-print("\nA_n = [", ", ".join(f"{a:.8f}" for a in A_opt), "]")
-print("\nθ_n = [", ", ".join(f"{t:.8f}" for t in theta_opt), "]")
+    result = minimize(loss, init_params, args=(x_val, gamma), method='L-BFGS-B')
+    N = N_zeros
+    A_fit = result.x[:N]
+    theta_fit = result.x[N:]
+    final_error = loss(result.x, x_val, gamma)
+
+    print(f"✅ 最终误差: {final_error:.50f}")
+    print("\nA_n =", np.round(A_fit, 8).tolist())
+    print("\ntheta_n =", np.round(theta_fit, 8).tolist())
+
+# 示例运行
+run_fit(x_val=100, N_zeros=50)
