@@ -1,83 +1,64 @@
-# AdS Prime Model (High-Precision) - Colab Ready
-# --------------------------------------------------
-# 安装依赖
-!pip install mpmath numpy scipy --quiet
+# === 安装依赖（仅第一次运行时需要） ===
+!pip install mpmath
 
-# 导入模块
+# === 引入必要库 ===
 import numpy as np
-from scipy.optimize import differential_evolution
-from mpmath import mp, mpf, log, cos, exp
 import matplotlib.pyplot as plt
+from mpmath import zetazero, mp, cos, log, pi
+from scipy.optimize import minimize
 
-# 设置高精度
-mp.dps = 50
+# === 设置高精度（50 位小数）===
+mp.dps = 50  # decimal places
 
-# Riemann 零点（可拓展）
-zeta_zeros_high = [
-    14.134725, 21.022040, 25.010858, 30.424876, 32.935062,
-    37.586178, 40.918719, 43.327073, 48.005150, 49.773832,
-    52.970321, 56.446247, 59.347044, 60.831779, 65.112544,
-    67.079811, 69.546401, 72.067158, 75.704690, 77.144840,
-    79.337375, 82.910380, 84.735493, 87.425274, 88.809111
-]  # 可拓展到100+
+# === 生成前 N 个 Riemann 零点（虚部）===
+def get_riemann_zeros(n):
+    return np.array([float(zetazero(i).imag) for i in range(1, n + 1)])
 
-# pi(x) 查表
-pi_lookup_high = {100: 25, 500: 95, 1000: 168, 10000: 1229}
+# === φ(x) 目标函数 ===
+def phi(x, A, theta, gamma):
+    return sum(A[i] * float(cos(gamma[i] * log(x) + theta[i])) for i in range(len(A)))
 
-# 拟合主函数（支持多点、轨迹输出、正则）
-def fit_ads_batch(xs, lambda_reg=mpf("1e-4"), max_freqs=10, target_error=mpf("1e-8")):
-    results = []
-    for x in xs:
-        print(f"\n=== Fitting x = {x} ===")
-        logx = log(x)
-        true_val = mpf(pi_lookup_high[x]) / mpf(x)
-        used_freqs = []
+# === 损失函数（最小化 φ(x) 与目标值之间的误差）===
+def loss(params, x_target, y_target, gamma, lambda_reg):
+    n = len(gamma)
+    A = params[:n]
+    theta = params[n:]
+    y_pred = phi(x_target, A, theta, gamma)
+    error = (y_pred - y_target) ** 2
+    reg = lambda_reg * np.sum(A**2)
+    return float(error + reg)
 
-        for n in range(1, max_freqs + 1):
-            def resonance_score(t): return abs((t * logx) % (2 * mp.pi) - mp.pi)
-            candidate = sorted([z for z in zeta_zeros_high if z not in used_freqs], key=resonance_score)[0]
-            used_freqs.append(candidate)
-            N = len(used_freqs)
+# === 参数设置 ===
+x_target = 100              # 拟合目标点 φ(x_target)
+y_target = 0.0              # 假设目标值为 0（可改为其他）
+lambda_reg = 1e-6           # 正则化参数
+errors = []
+N_values = list(range(1, 21))  # 零点数量 1 ~ 20
 
-            bounds = [(0.05, 0.1)] * N + [(-np.pi, np.pi)] * N  # 初始化缩窄
+# === 主循环：不断增加零点数量进行测试 ===
+for N in N_values:
+    gamma = get_riemann_zeros(N)
+    A0 = np.full(N, 0.1)
+    theta0 = np.random.uniform(-np.pi, np.pi, N)
+    init_params = np.concatenate([A0, theta0])
 
-            def rho_ads(params):
-                s = mpf(1) / logx
-                for i in range(N):
-                    A = mpf(params[i])
-                    theta = mpf(params[N + i])
-                    s += A * cos(used_freqs[i] * logx + theta)
-                return s
+    res = minimize(
+        loss,
+        init_params,
+        args=(x_target, y_target, gamma, lambda_reg),
+        method='L-BFGS-B'
+    )
 
-            def loss(params):
-                prediction = rho_ads(params)
-                mse = (prediction - true_val) ** 2
-                reg = lambda_reg * sum([exp(-mpf(p)) for p in params[:N]])
-                return float(mse + reg)
+    final_error = loss(res.x, x_target, y_target, gamma, lambda_reg)
+    errors.append(final_error)
+    print(f"Iteration {N}: Error = {final_error:.50f}")
 
-            result = differential_evolution(loss, bounds, strategy='best1bin', tol=1e-7, maxiter=500, seed=42)
-            pred = rho_ads(result.x)
-            abs_error = abs(pred - true_val)
-
-            A_values = result.x[:N]
-            theta_values = result.x[N:]
-
-            print(f"Iteration {n}: Error = {abs_error}")
-            print(f"A_n = {np.round(A_values, 8)}")
-            print(f"theta_n = {np.round(theta_values, 6)}")
-
-            results.append({"x": x, "n": n, "error": float(abs_error),
-                            "A_n": A_values, "theta_n": theta_values})
-
-            if abs_error < target_error:
-                print(f"✅ Converged for x={x} with {n} frequencies\n")
-                break
-        else:
-            print("❌ 未达到目标误差")
-
-    return results
-
-# ▶️ 运行测试：支持多个 x
-x_values = [100, 500, 1000, 10000]
-fit_ads_batch(x_values, max_freqs=10, lambda_reg=mpf("1e-3"))
-
+# === 绘图展示误差曲线 ===
+plt.figure(figsize=(10, 6))
+plt.plot(N_values, errors, marker='o')
+plt.yscale('log')
+plt.xlabel('Number of Zeros (N)')
+plt.ylabel('Final Error (log scale)')
+plt.title(f'Error vs. Number of Riemann Zeros for φ(x={x_target})')
+plt.grid(True)
+plt.show()
